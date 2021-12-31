@@ -1,1 +1,1 @@
-Python Blackjack game utilizing OOP
+Python Blackjack game utilizing OOP and typing!
