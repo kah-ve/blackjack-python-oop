@@ -132,6 +132,11 @@ class Hand:
         hand_sum = self.get_hand_sum()
         return True if hand_sum == 21 else False
 
+    def reset(self):
+        self.cards: List[Card] = []
+        self.value: int = 0
+        self.aces: int = 0
+
 
 class Chips:
     def __init__(self, total: int = 100):
@@ -209,6 +214,7 @@ class Table:
                 if is_play == 1:
                     for player in self.playing_status:
                         self.playing_status[player] = True
+                        player.hand.reset()
 
                     self.game_winner = []
                     return True
@@ -271,7 +277,7 @@ class Table:
                                     print(f"The Dealer has gone bust!!!")
                                     game_ended = True
                                     for player in self.playing_status:
-                                        if self.playing_status[player]:
+                                        if player.hand.get_hand_sum() <= 21:
                                             self.game_winner.append(player)
 
                         else:
