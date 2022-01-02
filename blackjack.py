@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 import random
+from abc import ABC, abstractmethod
+import random
 
 
 @dataclass
@@ -35,6 +37,45 @@ values = {
     "King": 10,
     "Ace": 11,
 }
+
+
+class Player(ABC):
+    def __init__(self, name: str):
+        self.name = name
+        self.hand: Hand = Hand()
+        self.chips: Chips = Chips()
+
+    def receive_card(self, card: Card) -> bool:
+        return self.hand.add_card(card)
+
+    def get_name(self) -> str:
+        return self.name
+
+    def get_chips_total(self) -> int:
+        return self.chips.total
+
+
+class NormalPlayer(Player):
+    def __init__(self, name: str):
+        super().__init__(name)
+
+    def receive_card(self, card: Card) -> bool:
+        print(f"Player {self.name} has received the card suit and rank: {values[card.rank]} of {card.suit}.")
+        return super().receive_card(card)
+
+
+class Dealer(Player):
+    def __init__(self):
+        super().__init__("Dealer")
+        self.chips: Chips = Chips(10000)
+
+    def receive_card(self, card: Card) -> bool:
+        print(f"The Dealer has drawn the card suit and rank: {values[card.rank]} of {card.suit}")
+        return super().receive_card(card)
+
+    def get_chips_total(self) -> int:
+        self.chips: Chips = Chips(10000)
+        return self.chips.total  # Dealer has constantly refueled chip amount.
 
 
 class Deck:
@@ -94,7 +135,7 @@ class Hand:
 
 class Chips:
     def __init__(self, total: int = 100):
-        self.total = 100
+        self.total = total
         self.bet = 0
 
     def win_bet(self):
@@ -106,36 +147,18 @@ class Chips:
         self.bet = 0
 
 
-class Player:
-    def __init__(self, name: str):
-        self.name = name
-        self.hand: Hand = Hand()
-        self.chips: Chips = Chips()
-
-    def receive_card(self, card: Card) -> bool:
-        print(f"Player {self.name} has received the card suit and rank: {values[card.rank]} of {card.suit}.")
-        return self.hand.add_card(card)
-
-    def make_bet(self):
-        pass
-
-    def get_name(self) -> str:
-        return self.name
-
-    def get_chips_total(self) -> int:
-        return self.chips.total
-
-
 class Table:
-    def __init__(self, players: List[Player] = []):
+    def __init__(self, players: List[Player]):
         self.players: List[Player] = players
         self.deck: Deck = Deck()
         self.playing_status: Dict[Player, bool] = {player: True for player in players}
-        self.game_winner: Optional[Player] = None
-        pass
+        self.game_winner: List[Optional[Player]] = []
 
     def take_bet(self, player: Player) -> bool:
         while True:
+            if isinstance(player, Dealer):
+                return True
+
             try:
                 player.chips.bet = int(
                     input(f"\nPlayer: {player.get_name()} - How many chips would you like to bet? ")
@@ -162,11 +185,11 @@ class Table:
             self.playing_status[player] = False
             print(f"Your hand has passed 21 with the value {player.hand.get_hand_sum()}. You are bust.")
 
-    def end_game(self, winner: Optional[Player]):
+    def end_game(self, winner: List[Optional[Player]]):
         if not winner:
-            print("\nThe table has won. Sorry you all failed!\n")
+            print("No one has won. Sorry you all failed! (P.S. The house always wins though.)\n")
         else:
-            print(f"Blackjack! Game has been won by player: {winner.get_name()}")
+            print(f"Blackjack! Game has been won by player(s): {', '.join([w.get_name() for w in winner if w])}")
 
     def display_all_chips(self):
         print("Total chip scores:\n")
@@ -186,14 +209,16 @@ class Table:
                 if is_play == 1:
                     for player in self.playing_status:
                         self.playing_status[player] = True
+
+                    self.game_winner = []
                     return True
                 else:
                     print("Thank you for playing!")
                     return False
 
-    def update_chips(self, winning_player: Optional[Player]):
+    def update_chips(self, winning_player: List[Optional[Player]]):
         for player in self.players:
-            if winning_player == player:
+            if player in winning_player:
                 player.chips.win_bet()
             else:
                 player.chips.lose_bet()
@@ -213,12 +238,17 @@ class Table:
                     continue
 
                 while True:
+
                     try:
-                        player_response = int(
-                            input(
-                                f"\nPlayer: {player.name} - Would you like to hit or stand. (1 -> Hit, 2 -> Stand): "
+                        if not isinstance(player, Dealer):
+                            player_response = int(
+                                input(
+                                    f"\nPlayer: {player.name} - Would you like to hit or stand. (1 -> Hit, 2 -> Stand): "
+                                )
                             )
-                        )
+                        else:
+                            player_response = 1 if player.hand.get_hand_sum() < 18 else 2
+                            print(f'\nThe Dealer has chosen to {"HIT" if player_response == 1 else "STAND"}')
                     except ValueError:
                         print("Invalid. Respond with number 1 or 2.")
                     else:
@@ -229,20 +259,39 @@ class Table:
                             print(f"Current hand value is: {player_hand_value}")
 
                             if player_hand_value == 21:
-                                self.game_winner = player
+                                self.game_winner.append(player)
                                 self.end_game(winner=self.game_winner)
-                                print(f"You have won!")
+                                if isinstance(player, Dealer):
+                                    print(f"The Dealer has won. Everyone else loses.")
+                                else:
+                                    print(f"Player {player.get_name()} has won!")
                                 game_ended = True
                             elif player_hand_value > 21:
-                                print(f"You have gone bust!")
-                                game_ended = True
+                                if isinstance(player, Dealer):
+                                    print(f"The Dealer has gone bust!!!")
+                                    game_ended = True
+                                    for player in self.playing_status:
+                                        if self.playing_status[player]:
+                                            self.game_winner.append(player)
+
                         else:
+                            print(f"\n{player.name} is standing with hand value at: {player.hand.get_hand_sum()}")
                             self.playing_status[player] = False
 
                         break
 
-            if not any([self.playing_status[player] for player in self.playing_status]):
-                break
+            if not game_ended and not any([self.playing_status[player] for player in self.playing_status]):
+                game_ended = True
+
+                # find if any hand is not bust
+                hand_sums = []
+                for player in self.playing_status:
+                    if player.hand.get_hand_sum() <= 21:
+                        hand_sums.append((player, player.hand.get_hand_sum()))
+
+                # best hand amongst standing players belongs to
+                hand_sums.sort(key=lambda x: x[1])
+                self.game_winner.append(hand_sums[-1][0])
 
         print("Game has ended!")
         self.end_game(winner=self.game_winner)
@@ -256,8 +305,9 @@ class Table:
 
 
 if __name__ == "__main__":
-    player_1 = Player("Jack")
-    player_2 = Player("Enemy")
-    game_table = Table([player_1, player_2])
+    player1 = NormalPlayer("Jack")
+    player2 = NormalPlayer("Enemy")
+    dealer = Dealer()
+    game_table = Table(players=[player1, player2, dealer])
 
     game_table.run_game()
