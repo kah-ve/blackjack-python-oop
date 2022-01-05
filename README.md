@@ -5,7 +5,7 @@ This project very basically started from an article I was reading and then I com
 <br></br>
 <br></br>
 <br></br>
-**An example game run:**
+**An example game run (not particularly easy on the eyes or insightful tbh):**
 
 I am the Dealer welcome to the table.<br>
 Interesting is what interesting does! - IDP<br>
