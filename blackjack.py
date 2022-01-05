@@ -87,7 +87,7 @@ class Player(ABC, Callable):  # type: ignore
         return self.hand.add_card(card)
 
     @abstractmethod
-    def __call__(self, name: str = None):
+    def __call__(self, name: str = ""):
         pass
 
 
@@ -138,8 +138,8 @@ class NormalPlayer(Player):
     def response_to_hit_or_stand(self):
         pass
 
-    def __call__(self, name: str = None):
-        return self(name)
+    def __call__(self, name: str):
+        return self.__init__(name)
 
 
 @PlayerFactory.register
@@ -169,8 +169,8 @@ class Dealer(Player):
     def response_to_hit_or_stand(self):
         pass
 
-    def __call__(self, name: str = None):
-        return self(name)
+    def __call__(self, name: str):
+        return self.__init__()
 
 
 @PlayerFactory.register
@@ -198,8 +198,8 @@ class PerenniallyLosingPlayer(Player):
         else:
             return Decision.stand
 
-    def __call__(self, name: str = None):
-        return self(name)
+    def __call__(self, name: str):
+        return self.__init__()
 
 
 @PlayerFactory.register
@@ -227,8 +227,8 @@ class InterestingDecisionPlayer(Player):
         else:
             return Decision.hit
 
-    def __call__(self, name: str = None):
-        return self(name)
+    def __call__(self, name: str):
+        return self.__init__()
 
 
 @PlayerFactory.register
@@ -256,8 +256,8 @@ class ConservativePlayer(Player):
         else:
             print("Game has broken! GGs. You are an amazingly astute player.")
 
-    def __call__(self, name: str = None):
-        return self(name)
+    def __call__(self, name: str):
+        return self.__init__()
 
 
 # Deck, Hand, Chips, and Table (the game runner and controller) below
