@@ -1,8 +1,11 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Iterable
 import random
 from abc import ABC, abstractmethod
 import random
+from enum import IntEnum, Enum, auto
+from collections import Callable
+import logging
 
 
 @dataclass
@@ -11,7 +14,39 @@ class CardType:
     suit: str or None
 
 
+class Decision(IntEnum):
+    hit = 1
+    stand = 2
+
+
+class PlayerTypes(Enum):
+    Normal = auto()
+    Dealer = auto()
+    Interesting = auto()
+    Conservative = auto()
+    PerennialLoser = auto()
+
+
+# Blackjack Card/Deck rules defined
 class Card:
+    suits: Iterable[str] = ("Heart", "Diamonds", "Spades", "Clubs")
+
+    values: Dict[str, int] = {
+        "Two": 2,
+        "Three": 3,
+        "Four": 4,
+        "Five": 5,
+        "Six": 6,
+        "Seven": 7,
+        "Eight": 8,
+        "Nine": 9,
+        "Ten": 10,
+        "Jack": 10,
+        "Queen": 10,
+        "King": 10,
+        "Ace": 11,
+    }
+
     def __init__(self, suit: str, rank: str):
         self.suit = suit
         self.rank = rank
@@ -20,69 +55,217 @@ class Card:
         return self.rank + " of " + self.suit
 
 
-suits = ("Heart", "Diamonds", "Spades", "Clubs")
-ranks = ("Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace")
-values = {
-    "Two": 2,
-    "Three": 3,
-    "Four": 4,
-    "Five": 5,
-    "Six": 6,
-    "Seven": 7,
-    "Eight": 8,
-    "Nine": 9,
-    "Ten": 10,
-    "Jack": 10,
-    "Queen": 10,
-    "King": 10,
-    "Ace": 11,
-}
+# All Player Types and their inherit skills and overwhelming flaws
 
 
-class Player(ABC):
-    def __init__(self, name: str):
-        self.name = name
+class Player(ABC, Callable):  # type: ignore
+    def __init__(self):
         self.hand: Hand = Hand()
         self.chips: Chips = Chips()
 
-    def receive_card(self, card: Card) -> bool:
-        return self.hand.add_card(card)
+    @staticmethod
+    @abstractmethod
+    def get_type() -> PlayerTypes:
+        pass
 
-    def get_name(self) -> str:
-        return self.name
+    @classmethod
+    @abstractmethod
+    def signature_comment(cls) -> str:
+        pass
+
+    @abstractmethod
+    def response_to_hit_or_stand(self):
+        pass
 
     def get_chips_total(self) -> int:
         return self.chips.total
 
+    def get_name(self):
+        return self.name
 
+    def receive_card(self, card: Card) -> bool:
+        return self.hand.add_card(card)
+
+    @abstractmethod
+    def __call__(self, name: str = None):
+        pass
+
+
+# Simple and Contrived Factory!
+class PlayerFactory:
+    registry: Dict[PlayerTypes, Player] = dict()
+
+    @classmethod
+    def get_player(cls, player_type: PlayerTypes) -> Player:
+        if player_type not in cls.registry:
+            raise Exception(
+                f"The {player_type} you have selected has not been registered to this factory. Maybe try later?"
+            )
+        return cls.registry[player_type]
+
+    @classmethod
+    def register(cls, player: Player) -> None:
+        player_type = player.get_type()
+        cls.registry[player_type] = player
+
+    def __call__(self, player_type: PlayerTypes, name: str = None) -> Player:
+        if name:
+            return self.registry[player_type](name)
+        else:
+            return self.registry[player_type]()
+
+
+# Rest of the Player Types
+@PlayerFactory.register
 class NormalPlayer(Player):
     def __init__(self, name: str):
-        super().__init__(name)
+        super().__init__()
+        print("Thanks for me naming me!")
+        self.name = name
 
     def receive_card(self, card: Card) -> bool:
-        print(f"Player {self.name} has received the card suit and rank: {values[card.rank]} of {card.suit}.")
+        print(f"Player {self.name} has received the card suit and rank: {Card.values[card.rank]} of {card.suit}.")
         return super().receive_card(card)
 
+    @staticmethod
+    def get_type() -> PlayerTypes:
+        return PlayerTypes.Normal
 
+    @classmethod
+    def signature_comment(cls) -> str:
+        return "I am a normal dull player. I neither win or lose consistently."
+
+    def response_to_hit_or_stand(self):
+        pass
+
+    def __call__(self, name: str = None):
+        return self(name)
+
+
+@PlayerFactory.register
 class Dealer(Player):
     def __init__(self):
-        super().__init__("Dealer")
+        super().__init__()
+        self.name = "Dealer"
         self.chips: Chips = Chips(10000)
+        print("I am the Dealer welcome to the table.")
 
     def receive_card(self, card: Card) -> bool:
-        print(f"The Dealer has drawn the card suit and rank: {values[card.rank]} of {card.suit}")
+        print(f"The Dealer has drawn the card suit and rank: {Card.values[card.rank]} of {card.suit}")
         return super().receive_card(card)
 
     def get_chips_total(self) -> int:
         self.chips: Chips = Chips(10000)
         return self.chips.total  # Dealer has constantly refueled chip amount.
 
+    @staticmethod
+    def get_type() -> PlayerTypes:
+        return PlayerTypes.Dealer
 
+    @classmethod
+    def signature_comment(cls) -> str:
+        return "I am actually not a player, but the host. Not sure why I am gathered with these individuals."
+
+    def response_to_hit_or_stand(self):
+        pass
+
+    def __call__(self, name: str = None):
+        return self(name)
+
+
+@PlayerFactory.register
+class PerenniallyLosingPlayer(Player):
+    def __init__(self):
+        super().__init__()
+        self.name = "PerenniallyLosingPlayer"
+        print("Is it actually a loss if you never actually win? - PLP")
+
+    def receive_card(self, card: Card) -> bool:
+        print(f"Player {self.name} has received the card suit and rank: {Card.values[card.rank]} of {card.suit}.")
+        return super().receive_card(card)
+
+    @staticmethod
+    def get_type() -> PlayerTypes:
+        return PlayerTypes.PerennialLoser
+
+    @classmethod
+    def signature_comment(cls) -> str:
+        return "Pain! From the ghastly eyrie to the ends of the earth, I cannot remember winning."
+
+    def response_to_hit_or_stand(self):
+        if self.hand.get_hand_sum() < 10:
+            return Decision.hit
+        else:
+            return Decision.stand
+
+    def __call__(self, name: str = None):
+        return self(name)
+
+
+@PlayerFactory.register
+class InterestingDecisionPlayer(Player):
+    def __init__(self):
+        super().__init__()
+        self.name = "InterestingDecisionPlayer"
+        print("Interesting is what interesting does! - IDP")
+
+    def receive_card(self, card: Card) -> bool:
+        print(f"Player {self.name} has received the card suit and rank: {Card.values[card.rank]} of {card.suit}.")
+        return super().receive_card(card)
+
+    @staticmethod
+    def get_type() -> PlayerTypes:
+        return PlayerTypes.Interesting
+
+    @classmethod
+    def signature_comment(cls) -> str:
+        return "I don't play to win. I play because I can!"
+
+    def response_to_hit_or_stand(self):
+        if self.hand.get_hand_sum() < 14 and self.hand.get_hand_sum() > 0:
+            return Decision.stand
+        else:
+            return Decision.hit
+
+    def __call__(self, name: str = None):
+        return self(name)
+
+
+@PlayerFactory.register
+class ConservativePlayer(Player):
+    def __init__(self):
+        super().__init__()
+        self.name = "ConservativePlayer"
+        print("I play and I don't play and yet I never stop. - CP")
+
+    def receive_card(self, card: Card) -> bool:
+        print(f"Player {self.name} has received the card suit and rank: {Card.values[card.rank]} of {card.suit}.")
+        return super().receive_card(card)
+
+    @staticmethod
+    def get_type() -> PlayerTypes:
+        return PlayerTypes.Conservative
+
+    @classmethod
+    def signature_comment(cls) -> str:
+        return "One small game a day, never makes a giant leap to bankruptcy my friends! (P.S. Do not ever use money. I am not joking.)"
+
+    def response_to_hit_or_stand(self):
+        if self.hand.get_hand_sum() != -42:
+            return Decision.stand
+        else:
+            print("Game has broken! GGs. You are an amazingly astute player.")
+
+    def __call__(self, name: str = None):
+        return self(name)
+
+
+# Deck, Hand, Chips, and Table (the game runner and controller) below
 class Deck:
     def __init__(self):
         self.deck: List[Card] = []
-        for suit in suits:
-            for rank in ranks:
+        for suit in Card.suits:
+            for rank, value in Card.values.items():
                 self.deck.append(Card(suit, rank))
         self.shuffle()
 
@@ -108,7 +291,7 @@ class Hand:
 
     def add_card(self, card: Card) -> bool:
         self.cards.append(card)
-        self.value += values[card.rank]
+        self.value += Card.values[card.rank]
         self.adjust_for_ace()
 
         return False if self.is_bust() else True
@@ -121,7 +304,7 @@ class Hand:
     def get_hand_sum(self) -> int:
         hand_sum = 0
         for card in self.cards:
-            hand_sum += values[card.rank]
+            hand_sum += Card.values[card.rank]
         return hand_sum
 
     def is_bust(self) -> bool:
@@ -161,7 +344,7 @@ class Table:
 
     def take_bet(self, player: Player) -> bool:
         while True:
-            if isinstance(player, Dealer):
+            if player.get_type() == PlayerTypes.Dealer:
                 return True
 
             try:
@@ -195,6 +378,9 @@ class Table:
             print("No one has won. Sorry you all failed! (P.S. The house always wins though.)\n")
         else:
             print(f"Blackjack! Game has been won by player(s): {', '.join([w.get_name() for w in winner if w])}")
+            print("Would the player(s) like to make any comments on their win?")
+            for player in winner:
+                player.signature_comment()  # type:ignore
 
     def display_all_chips(self):
         print("Total chip scores:\n")
@@ -244,21 +430,22 @@ class Table:
                     continue
 
                 while True:
-
                     try:
-                        if not isinstance(player, Dealer):
+                        if player.get_type() == PlayerTypes.Dealer:
+                            player_response = Decision.hit if player.hand.get_hand_sum() < 18 else Decision.stand
+                            print(f'\nThe Dealer has chosen to {"HIT" if player_response == 1 else "STAND"}')
+                        elif player.get_type() != PlayerTypes.Normal:
+                            player_response = player.response_to_hit_or_stand()
+                        else:
                             player_response = int(
                                 input(
                                     f"\nPlayer: {player.name} - Would you like to hit or stand. (1 -> Hit, 2 -> Stand): "
                                 )
                             )
-                        else:
-                            player_response = 1 if player.hand.get_hand_sum() < 18 else 2
-                            print(f'\nThe Dealer has chosen to {"HIT" if player_response == 1 else "STAND"}')
                     except ValueError:
                         print("Invalid. Respond with number 1 or 2.")
                     else:
-                        if player_response == 1:
+                        if player_response == Decision.hit:
                             self.hit(player)
 
                             player_hand_value = player.hand.get_hand_sum()
@@ -267,13 +454,13 @@ class Table:
                             if player_hand_value == 21:
                                 self.game_winner.append(player)
                                 self.end_game(winner=self.game_winner)
-                                if isinstance(player, Dealer):
+                                if player.get_type() == PlayerTypes.Dealer:
                                     print(f"The Dealer has won. Everyone else loses.")
                                 else:
                                     print(f"Player {player.get_name()} has won!")
                                 game_ended = True
                             elif player_hand_value > 21:
-                                if isinstance(player, Dealer):
+                                if player.get_type() == PlayerTypes.Dealer:
                                     print(f"The Dealer has gone bust!!!")
                                     game_ended = True
                                     for player in self.playing_status:
@@ -311,9 +498,17 @@ class Table:
 
 
 if __name__ == "__main__":
-    player1 = NormalPlayer("Jack")
-    player2 = NormalPlayer("Enemy")
-    dealer = Dealer()
-    game_table = Table(players=[player1, player2, dealer])
+
+    factory: PlayerFactory = PlayerFactory()
+
+    players = [
+        factory(PlayerTypes.Normal, "MainCharacterJack"),
+        factory(PlayerTypes.Dealer),
+        factory(PlayerTypes.Interesting),
+        factory(PlayerTypes.Conservative),
+        factory(PlayerTypes.PerennialLoser),
+    ]
+
+    game_table = Table(players=players)
 
     game_table.run_game()
