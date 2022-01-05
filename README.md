@@ -7,14 +7,14 @@ This project very basically started from an article I was reading and then I com
 <br></br>
 **An example game run (not particularly easy on the eyes or insightful tbh):**
 
-Player Intros:
+Player Intros:<br>
 Thanks for me naming me! - NP <br>
 I am the Dealer welcome to the table.<br>
 Interesting is what interesting does! - IDP       <br>
 I play and I don't play and yet I never stop. - CP<br>
 Is it actually a loss if you never actually win? - PLP<br>
 <br>
-
+<br>
 Player: MainCharacterJack - How many chips would you like to bet? 1<br>
 <br>
 Player: InterestingDecisionPlayer - How many chips would you like to bet? 2323<br>
