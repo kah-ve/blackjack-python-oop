@@ -1,4 +1,5 @@
-**Python Blackjack game utilizing OOP, typing, and even ABC (abstract classes)!**
+**Python Blackjack game utilizing OOP, typing, ABC (abstract classes), and a completely contrived factory design pattern!**
+This project was very useful to practically implement and practice some different types of programming for improvement sake. Also was quite fun.
 <br></br>
 <br></br>
 <br></br>
